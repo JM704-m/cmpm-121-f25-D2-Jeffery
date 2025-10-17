@@ -53,24 +53,20 @@ canvas.addEventListener("drawing-changed", redrawAll);
 canvas.addEventListener("mousedown", (e) => {
   cursor.active = true;
   const p = toCanvasXY(e);
-  cursor.x = p.x;
-  cursor.y = p.y;
-
-  currentStroke = [];
+  redoStack.length = 0;
+  currentStroke = [{ x: p.x, y: p.y }];
   displayList.push(currentStroke);
-  currentStroke.push({ x: cursor.x, y: cursor.y });
-
   fireDrawingChanged();
 });
 
 canvas.addEventListener("mousemove", (e) => {
-  if (!cursor.active || !currentStroke) return;
-
+  if (!cursor.active || !currentStroke) {
+    return;
+  }
   const p = toCanvasXY(e);
   cursor.x = p.x;
   cursor.y = p.y;
   currentStroke.push({ x: cursor.x, y: cursor.y });
-
   fireDrawingChanged();
 });
 
@@ -90,7 +86,37 @@ document.body.append(clearButton);
 
 clearButton.addEventListener("click", () => {
   displayList.length = 0;
+  redoStack.length = 0;
   fireDrawingChanged();
 });
 
+const undoButton = document.createElement("button");
+undoButton.innerHTML = "undo";
+document.body.append(undoButton);
+
+const redoButton = document.createElement("button");
+redoButton.innerHTML = "redo";
+document.body.append(redoButton);
+
+const redoStack: Stroke[] = [];
+function undo() {
+  if (displayList.length === 0) {
+    return;
+  }
+  const popped = displayList.pop()!;
+  redoStack.push(popped);
+  fireDrawingChanged();
+}
+
+function redo() {
+  if (redoStack.length === 0) {
+    return;
+  }
+  const restored = redoStack.pop()!;
+  displayList.push(restored);
+  fireDrawingChanged();
+}
+
+undoButton.addEventListener("click", undo);
+redoButton.addEventListener("click", redo);
 fireDrawingChanged();
