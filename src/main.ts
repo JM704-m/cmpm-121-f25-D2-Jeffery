@@ -9,29 +9,79 @@ canvas.width = 256;
 canvas.height = 256;
 document.body.append(canvas);
 
-const ctx = canvas.getContext("2d");
+const ctx = canvas.getContext("2d")!;
+ctx.lineCap = "round";
+ctx.lineJoin = "round";
+ctx.strokeStyle = "#000";
+ctx.lineWidth = 2;
 
 const cursor = { active: false, x: 0, y: 0 };
 
+type Point = { x: number; y: number };
+type Stroke = Point[];
+
+const displayList: Stroke[] = [];
+
+let currentStroke: Stroke | null = null;
+
+function toCanvasXY(ev: MouseEvent): Point {
+  const rect = canvas.getBoundingClientRect();
+  return { x: ev.clientX - rect.left, y: ev.clientY - rect.top };
+}
+
+function redrawAll() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (const stroke of displayList) {
+    if (stroke.length === 0) continue;
+    ctx.beginPath();
+    const first = stroke[0]!;
+    ctx.moveTo(first.x, first.y);
+    for (let i = 1; i < stroke.length; i++) {
+      const pt = stroke[i]!;
+      ctx.lineTo(pt.x, pt.y);
+    }
+    ctx.stroke();
+  }
+}
+
+function fireDrawingChanged() {
+  canvas.dispatchEvent(new Event("drawing-changed"));
+}
+
+canvas.addEventListener("drawing-changed", redrawAll);
+
 canvas.addEventListener("mousedown", (e) => {
   cursor.active = true;
-  cursor.x = e.offsetX;
-  cursor.y = e.offsetY;
+  const p = toCanvasXY(e);
+  cursor.x = p.x;
+  cursor.y = p.y;
+
+  currentStroke = [];
+  displayList.push(currentStroke);
+  currentStroke.push({ x: cursor.x, y: cursor.y });
+
+  fireDrawingChanged();
 });
 
 canvas.addEventListener("mousemove", (e) => {
-  if (cursor.active && ctx) {
-    ctx.beginPath();
-    ctx.moveTo(cursor.x, cursor.y);
-    ctx.lineTo(e.offsetX, e.offsetY);
-    ctx.stroke();
-    cursor.x = e.offsetX;
-    cursor.y = e.offsetY;
-  }
+  if (!cursor.active || !currentStroke) return;
+
+  const p = toCanvasXY(e);
+  cursor.x = p.x;
+  cursor.y = p.y;
+  currentStroke.push({ x: cursor.x, y: cursor.y });
+
+  fireDrawingChanged();
 });
 
 canvas.addEventListener("mouseup", () => {
   cursor.active = false;
+  currentStroke = null;
+});
+
+canvas.addEventListener("mouseleave", () => {
+  cursor.active = false;
+  currentStroke = null;
 });
 
 const clearButton = document.createElement("button");
@@ -39,7 +89,8 @@ clearButton.innerHTML = "clear";
 document.body.append(clearButton);
 
 clearButton.addEventListener("click", () => {
-  if (ctx) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-  }
+  displayList.length = 0;
+  fireDrawingChanged();
 });
+
+fireDrawingChanged();
