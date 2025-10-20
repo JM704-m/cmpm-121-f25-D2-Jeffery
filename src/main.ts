@@ -18,11 +18,34 @@ ctx.lineWidth = 2;
 const cursor = { active: false, x: 0, y: 0 };
 
 type Point = { x: number; y: number };
-type Stroke = Point[];
+interface DisplayCommand {
+  display(ctx: CanvasRenderingContext2D): void;
+}
 
-const displayList: Stroke[] = [];
+class MarkerLine implements DisplayCommand {
+  private pts: Point[] = [];
+  constructor(p0: Point) {
+    this.pts.push(p0);
+  }
+  drag(p: Point): void {
+    this.pts.push(p);
+  }
+  display(ctx: CanvasRenderingContext2D): void {
+    if (this.pts.length === 0) return;
+    ctx.beginPath();
+    const first = this.pts[0]!;
+    ctx.moveTo(first.x, first.y);
+    for (let i = 1; i < this.pts.length; i++) {
+      const pt = this.pts[i]!;
+      ctx.lineTo(pt.x, pt.y);
+    }
+    ctx.stroke();
+  }
+}
 
-let currentStroke: Stroke | null = null;
+const displayList: DisplayCommand[] = [];
+
+let currentStroke: MarkerLine | null = null;
 
 function toCanvasXY(ev: MouseEvent): Point {
   const rect = canvas.getBoundingClientRect();
@@ -31,16 +54,8 @@ function toCanvasXY(ev: MouseEvent): Point {
 
 function redrawAll() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  for (const stroke of displayList) {
-    if (stroke.length === 0) continue;
-    ctx.beginPath();
-    const first = stroke[0]!;
-    ctx.moveTo(first.x, first.y);
-    for (let i = 1; i < stroke.length; i++) {
-      const pt = stroke[i]!;
-      ctx.lineTo(pt.x, pt.y);
-    }
-    ctx.stroke();
+  for (const cmd of displayList) {
+    (cmd as DisplayCommand).display(ctx);
   }
 }
 
@@ -54,7 +69,7 @@ canvas.addEventListener("mousedown", (e) => {
   cursor.active = true;
   const p = toCanvasXY(e);
   redoStack.length = 0;
-  currentStroke = [{ x: p.x, y: p.y }];
+  currentStroke = new MarkerLine({ x: p.x, y: p.y });
   displayList.push(currentStroke);
   fireDrawingChanged();
 });
@@ -66,7 +81,7 @@ canvas.addEventListener("mousemove", (e) => {
   const p = toCanvasXY(e);
   cursor.x = p.x;
   cursor.y = p.y;
-  currentStroke.push({ x: cursor.x, y: cursor.y });
+  currentStroke.drag({ x: cursor.x, y: cursor.y });
   fireDrawingChanged();
 });
 
@@ -98,11 +113,10 @@ const redoButton = document.createElement("button");
 redoButton.innerHTML = "redo";
 document.body.append(redoButton);
 
-const redoStack: Stroke[] = [];
+const redoStack: DisplayCommand[] = [];
+
 function undo() {
-  if (displayList.length === 0) {
-    return;
-  }
+  if (displayList.length === 0) return;
   const popped = displayList.pop()!;
   redoStack.push(popped);
   fireDrawingChanged();
