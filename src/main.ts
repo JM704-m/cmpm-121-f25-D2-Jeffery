@@ -24,14 +24,18 @@ interface DisplayCommand {
 
 class MarkerLine implements DisplayCommand {
   private pts: Point[] = [];
-  constructor(p0: Point) {
+  private width: number;
+  constructor(p0: Point, width: number) {
     this.pts.push(p0);
+    this.width = width;
   }
   drag(p: Point): void {
     this.pts.push(p);
   }
   display(ctx: CanvasRenderingContext2D): void {
     if (this.pts.length === 0) return;
+    ctx.save();
+    ctx.lineWidth = this.width;
     ctx.beginPath();
     const first = this.pts[0]!;
     ctx.moveTo(first.x, first.y);
@@ -40,6 +44,7 @@ class MarkerLine implements DisplayCommand {
       ctx.lineTo(pt.x, pt.y);
     }
     ctx.stroke();
+    ctx.restore();
   }
 }
 
@@ -47,6 +52,7 @@ const displayList: DisplayCommand[] = [];
 
 let currentStroke: MarkerLine | null = null;
 
+let currentWidth = 2;
 function toCanvasXY(ev: MouseEvent): Point {
   const rect = canvas.getBoundingClientRect();
   return { x: ev.clientX - rect.left, y: ev.clientY - rect.top };
@@ -69,7 +75,7 @@ canvas.addEventListener("mousedown", (e) => {
   cursor.active = true;
   const p = toCanvasXY(e);
   redoStack.length = 0;
-  currentStroke = new MarkerLine({ x: p.x, y: p.y });
+  currentStroke = new MarkerLine({ x: p.x, y: p.y }, currentWidth);
   displayList.push(currentStroke);
   fireDrawingChanged();
 });
@@ -133,4 +139,21 @@ function redo() {
 
 undoButton.addEventListener("click", undo);
 redoButton.addEventListener("click", redo);
+
+const thinButton = document.createElement("button");
+thinButton.innerHTML = "thin";
+document.body.append(thinButton);
+
+const thickButton = document.createElement("button");
+thickButton.innerHTML = "thick";
+document.body.append(thickButton);
+
+thinButton.addEventListener("click", () => {
+  currentWidth = 2;
+});
+
+thickButton.addEventListener("click", () => {
+  currentWidth = 8;
+});
+
 fireDrawingChanged();
