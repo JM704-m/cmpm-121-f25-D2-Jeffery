@@ -18,6 +18,7 @@ ctx.lineWidth = 2;
 const cursor = { active: false, x: 0, y: 0 };
 
 type Point = { x: number; y: number };
+
 interface DisplayCommand {
   display(ctx: CanvasRenderingContext2D): void;
 }
@@ -68,10 +69,54 @@ class MarkerPreview implements ToolPreview {
   }
 }
 
+class Sticker implements DisplayCommand {
+  private p: Point;
+  private emoji: string;
+  private size: number;
+  constructor(p: Point, emoji: string, size: number) {
+    this.p = p;
+    this.emoji = emoji;
+    this.size = size;
+  }
+  drag(p: Point): void {
+    this.p = p;
+  }
+  display(ctx: CanvasRenderingContext2D): void {
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = `${this.size}px serif`;
+    ctx.fillText(this.emoji, this.p.x, this.p.y);
+    ctx.restore();
+  }
+}
+
+class StickerPreview implements ToolPreview {
+  private p: Point;
+  private emoji: string;
+  private size: number;
+  constructor(p: Point, emoji: string, size: number) {
+    this.p = p;
+    this.emoji = emoji;
+    this.size = size;
+  }
+  draw(ctx: CanvasRenderingContext2D): void {
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = `${this.size}px serif`;
+    ctx.fillText(this.emoji, this.p.x, this.p.y);
+    ctx.restore();
+  }
+}
+
 const displayList: DisplayCommand[] = [];
-let currentStroke: MarkerLine | null = null;
+let currentStroke: MarkerLine | Sticker | null = null;
 let currentWidth = 2;
 let currentPreview: ToolPreview | null = null;
+let currentTool: "line" | "sticker" = "line";
+let selectedSticker: string | null = null;
+const stickerSize = 24;
 
 function toCanvasXY(ev: MouseEvent): Point {
   const rect = canvas.getBoundingClientRect();
@@ -81,7 +126,7 @@ function toCanvasXY(ev: MouseEvent): Point {
 function redrawAll() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   for (const cmd of displayList) {
-    (cmd as DisplayCommand).display(ctx);
+    cmd.display(ctx);
   }
   if (!cursor.active && currentPreview) {
     currentPreview.draw(ctx);
@@ -104,7 +149,12 @@ canvas.addEventListener("mousedown", (e) => {
   const p = toCanvasXY(e);
   redoStack.length = 0;
   currentPreview = null;
-  currentStroke = new MarkerLine({ x: p.x, y: p.y }, currentWidth);
+  if (currentTool === "line") {
+    currentStroke = new MarkerLine({ x: p.x, y: p.y }, currentWidth);
+  } else {
+    const emoji = selectedSticker ?? "⭐";
+    currentStroke = new Sticker({ x: p.x, y: p.y }, emoji, stickerSize);
+  }
   displayList.push(currentStroke);
   fireDrawingChanged();
 });
@@ -117,10 +167,19 @@ canvas.addEventListener("mousemove", (e) => {
     currentStroke.drag({ x: cursor.x, y: cursor.y });
     fireDrawingChanged();
   } else {
-    currentPreview = new MarkerPreview(
-      { x: cursor.x, y: cursor.y },
-      currentWidth,
-    );
+    if (currentTool === "line") {
+      currentPreview = new MarkerPreview(
+        { x: cursor.x, y: cursor.y },
+        currentWidth,
+      );
+    } else {
+      const emoji = selectedSticker ?? "⭐";
+      currentPreview = new StickerPreview(
+        { x: cursor.x, y: cursor.y },
+        emoji,
+        stickerSize,
+      );
+    }
     fireToolMoved();
   }
 });
@@ -185,6 +244,7 @@ document.body.append(thickButton);
 
 thinButton.addEventListener("click", () => {
   currentWidth = 2;
+  currentTool = "line";
   if (!cursor.active) {
     currentPreview = new MarkerPreview(
       { x: cursor.x, y: cursor.y },
@@ -196,10 +256,62 @@ thinButton.addEventListener("click", () => {
 
 thickButton.addEventListener("click", () => {
   currentWidth = 8;
+  currentTool = "line";
   if (!cursor.active) {
     currentPreview = new MarkerPreview(
       { x: cursor.x, y: cursor.y },
       currentWidth,
+    );
+    fireToolMoved();
+  }
+});
+
+const stickerA = document.createElement("button");
+stickerA.innerHTML = "⭐";
+document.body.append(stickerA);
+
+const stickerB = document.createElement("button");
+stickerB.innerHTML = "🤪";
+document.body.append(stickerB);
+
+const stickerC = document.createElement("button");
+stickerC.innerHTML = "😍";
+document.body.append(stickerC);
+
+stickerA.addEventListener("click", () => {
+  currentTool = "sticker";
+  selectedSticker = "⭐";
+  if (!cursor.active) {
+    currentPreview = new StickerPreview(
+      { x: cursor.x, y: cursor.y },
+      selectedSticker,
+      stickerSize,
+    );
+    fireToolMoved();
+  }
+});
+
+stickerB.addEventListener("click", () => {
+  currentTool = "sticker";
+  selectedSticker = "🤪";
+  if (!cursor.active) {
+    currentPreview = new StickerPreview(
+      { x: cursor.x, y: cursor.y },
+      selectedSticker,
+      stickerSize,
+    );
+    fireToolMoved();
+  }
+});
+
+stickerC.addEventListener("click", () => {
+  currentTool = "sticker";
+  selectedSticker = "😍";
+  if (!cursor.active) {
+    currentPreview = new StickerPreview(
+      { x: cursor.x, y: cursor.y },
+      selectedSticker,
+      stickerSize,
     );
     fireToolMoved();
   }
