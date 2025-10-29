@@ -112,11 +112,11 @@ class StickerPreview implements ToolPreview {
 
 const displayList: DisplayCommand[] = [];
 let currentStroke: MarkerLine | Sticker | null = null;
-let currentWidth = 2;
+let currentWidth = 3;
 let currentPreview: ToolPreview | null = null;
 let currentTool: "line" | "sticker" = "line";
 let selectedSticker: string | null = null;
-const stickerSize = 24;
+const stickerSize = 32;
 
 function toCanvasXY(ev: MouseEvent): Point {
   const rect = canvas.getBoundingClientRect();
@@ -243,7 +243,7 @@ thickButton.innerHTML = "thick";
 document.body.append(thickButton);
 
 thinButton.addEventListener("click", () => {
-  currentWidth = 2;
+  currentWidth = 3;
   currentTool = "line";
   if (!cursor.active) {
     currentPreview = new MarkerPreview(
@@ -255,7 +255,7 @@ thinButton.addEventListener("click", () => {
 });
 
 thickButton.addEventListener("click", () => {
-  currentWidth = 8;
+  currentWidth = 10;
   currentTool = "line";
   if (!cursor.active) {
     currentPreview = new MarkerPreview(
