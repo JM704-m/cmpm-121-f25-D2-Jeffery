@@ -299,4 +299,23 @@ customStickerButton.addEventListener("click", () => {
   }
 });
 
+const exportButton = document.createElement("button");
+exportButton.innerHTML = "export";
+document.body.append(exportButton);
+exportButton.addEventListener("click", () => {
+  const bigCanvas = document.createElement("canvas");
+  bigCanvas.width = 1024;
+  bigCanvas.height = 1024;
+  const bigCtx = bigCanvas.getContext("2d")!;
+  bigCtx.scale(4, 4);
+  bigCtx.clearRect(0, 0, 256, 256);
+  for (const cmd of displayList) {
+    cmd.display(bigCtx);
+  }
+  const a = document.createElement("a");
+  a.href = bigCanvas.toDataURL("image/png");
+  a.download = "sketchpad.png";
+  a.click();
+});
+
 fireDrawingChanged();
