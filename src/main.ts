@@ -266,54 +266,36 @@ thickButton.addEventListener("click", () => {
   }
 });
 
-const stickerA = document.createElement("button");
-stickerA.innerHTML = "⭐";
-document.body.append(stickerA);
-
-const stickerB = document.createElement("button");
-stickerB.innerHTML = "🤪";
-document.body.append(stickerB);
-
-const stickerC = document.createElement("button");
-stickerC.innerHTML = "😍";
-document.body.append(stickerC);
-
-stickerA.addEventListener("click", () => {
+const stickers: string[] = ["⭐", "🤪", "😍"];
+function selectSticker(emoji: string) {
   currentTool = "sticker";
-  selectedSticker = "⭐";
+  selectedSticker = emoji;
   if (!cursor.active) {
     currentPreview = new StickerPreview(
       { x: cursor.x, y: cursor.y },
-      selectedSticker,
+      emoji,
       stickerSize,
     );
     fireToolMoved();
   }
-});
+}
+function addStickerButton(emoji: string) {
+  const b = document.createElement("button");
+  b.innerHTML = emoji;
+  document.body.append(b);
+  b.addEventListener("click", () => selectSticker(emoji));
+}
+for (const s of stickers) addStickerButton(s);
 
-stickerB.addEventListener("click", () => {
-  currentTool = "sticker";
-  selectedSticker = "🤪";
-  if (!cursor.active) {
-    currentPreview = new StickerPreview(
-      { x: cursor.x, y: cursor.y },
-      selectedSticker,
-      stickerSize,
-    );
-    fireToolMoved();
-  }
-});
-
-stickerC.addEventListener("click", () => {
-  currentTool = "sticker";
-  selectedSticker = "😍";
-  if (!cursor.active) {
-    currentPreview = new StickerPreview(
-      { x: cursor.x, y: cursor.y },
-      selectedSticker,
-      stickerSize,
-    );
-    fireToolMoved();
+const customStickerButton = document.createElement("button");
+customStickerButton.innerHTML = "+";
+document.body.append(customStickerButton);
+customStickerButton.addEventListener("click", () => {
+  const text = prompt("Custom sticker text", "🧽");
+  if (text && text.length > 0) {
+    stickers.push(text);
+    addStickerButton(text);
+    selectSticker(text);
   }
 });
 
