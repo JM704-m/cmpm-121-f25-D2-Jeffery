@@ -26,9 +26,11 @@ interface DisplayCommand {
 class MarkerLine implements DisplayCommand {
   private pts: Point[] = [];
   private width: number;
-  constructor(p0: Point, width: number) {
+  private color: string;
+  constructor(p0: Point, width: number, color: string) {
     this.pts.push(p0);
     this.width = width;
+    this.color = color;
   }
   drag(p: Point): void {
     this.pts.push(p);
@@ -37,6 +39,7 @@ class MarkerLine implements DisplayCommand {
     if (this.pts.length === 0) return;
     ctx.save();
     ctx.lineWidth = this.width;
+    ctx.strokeStyle = this.color;
     ctx.beginPath();
     const first = this.pts[0]!;
     ctx.moveTo(first.x, first.y);
@@ -56,12 +59,15 @@ interface ToolPreview {
 class MarkerPreview implements ToolPreview {
   private p: Point;
   private width: number;
-  constructor(p: Point, width: number) {
+  private color: string;
+  constructor(p: Point, width: number, color: string) {
     this.p = p;
     this.width = width;
+    this.color = color;
   }
   draw(ctx: CanvasRenderingContext2D): void {
     ctx.save();
+    ctx.strokeStyle = this.color;
     ctx.beginPath();
     ctx.arc(this.p.x, this.p.y, this.width / 2, 0, Math.PI * 2);
     ctx.stroke();
@@ -73,20 +79,24 @@ class Sticker implements DisplayCommand {
   private p: Point;
   private emoji: string;
   private size: number;
-  constructor(p: Point, emoji: string, size: number) {
+  private rotation: number;
+  constructor(p: Point, emoji: string, size: number, rotation: number) {
     this.p = p;
     this.emoji = emoji;
     this.size = size;
+    this.rotation = rotation;
   }
   drag(p: Point): void {
     this.p = p;
   }
   display(ctx: CanvasRenderingContext2D): void {
     ctx.save();
+    ctx.translate(this.p.x, this.p.y);
+    ctx.rotate((this.rotation * Math.PI) / 180);
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.font = `${this.size}px serif`;
-    ctx.fillText(this.emoji, this.p.x, this.p.y);
+    ctx.fillText(this.emoji, 0, 0);
     ctx.restore();
   }
 }
@@ -95,17 +105,21 @@ class StickerPreview implements ToolPreview {
   private p: Point;
   private emoji: string;
   private size: number;
-  constructor(p: Point, emoji: string, size: number) {
+  private rotation: number;
+  constructor(p: Point, emoji: string, size: number, rotation: number) {
     this.p = p;
     this.emoji = emoji;
     this.size = size;
+    this.rotation = rotation;
   }
   draw(ctx: CanvasRenderingContext2D): void {
     ctx.save();
+    ctx.translate(this.p.x, this.p.y);
+    ctx.rotate((this.rotation * Math.PI) / 180);
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.font = `${this.size}px serif`;
-    ctx.fillText(this.emoji, this.p.x, this.p.y);
+    ctx.fillText(this.emoji, 0, 0);
     ctx.restore();
   }
 }
@@ -117,6 +131,16 @@ let currentPreview: ToolPreview | null = null;
 let currentTool: "line" | "sticker" = "line";
 let selectedSticker: string | null = null;
 const stickerSize = 32;
+
+let currentColor = randomColor();
+let currentRotation = randomRotation();
+
+function randomColor(): string {
+  return `hsl(${Math.floor(Math.random() * 360)}, 90%, 40%)`;
+}
+function randomRotation(): number {
+  return Math.floor(Math.random() * 60 - 30);
+}
 
 function toCanvasXY(ev: MouseEvent): Point {
   const rect = canvas.getBoundingClientRect();
@@ -150,10 +174,19 @@ canvas.addEventListener("mousedown", (e) => {
   redoStack.length = 0;
   currentPreview = null;
   if (currentTool === "line") {
-    currentStroke = new MarkerLine({ x: p.x, y: p.y }, currentWidth);
+    currentStroke = new MarkerLine(
+      { x: p.x, y: p.y },
+      currentWidth,
+      currentColor,
+    );
   } else {
     const emoji = selectedSticker ?? "⭐";
-    currentStroke = new Sticker({ x: p.x, y: p.y }, emoji, stickerSize);
+    currentStroke = new Sticker(
+      { x: p.x, y: p.y },
+      emoji,
+      stickerSize,
+      currentRotation,
+    );
   }
   displayList.push(currentStroke);
   fireDrawingChanged();
@@ -171,6 +204,7 @@ canvas.addEventListener("mousemove", (e) => {
       currentPreview = new MarkerPreview(
         { x: cursor.x, y: cursor.y },
         currentWidth,
+        currentColor,
       );
     } else {
       const emoji = selectedSticker ?? "⭐";
@@ -178,6 +212,7 @@ canvas.addEventListener("mousemove", (e) => {
         { x: cursor.x, y: cursor.y },
         emoji,
         stickerSize,
+        currentRotation,
       );
     }
     fireToolMoved();
@@ -245,10 +280,12 @@ document.body.append(thickButton);
 thinButton.addEventListener("click", () => {
   currentWidth = 3;
   currentTool = "line";
+  currentColor = randomColor();
   if (!cursor.active) {
     currentPreview = new MarkerPreview(
       { x: cursor.x, y: cursor.y },
       currentWidth,
+      currentColor,
     );
     fireToolMoved();
   }
@@ -257,10 +294,12 @@ thinButton.addEventListener("click", () => {
 thickButton.addEventListener("click", () => {
   currentWidth = 10;
   currentTool = "line";
+  currentColor = randomColor();
   if (!cursor.active) {
     currentPreview = new MarkerPreview(
       { x: cursor.x, y: cursor.y },
       currentWidth,
+      currentColor,
     );
     fireToolMoved();
   }
@@ -270,11 +309,13 @@ const stickers: string[] = ["⭐", "🤪", "😍"];
 function selectSticker(emoji: string) {
   currentTool = "sticker";
   selectedSticker = emoji;
+  currentRotation = randomRotation();
   if (!cursor.active) {
     currentPreview = new StickerPreview(
       { x: cursor.x, y: cursor.y },
       emoji,
       stickerSize,
+      currentRotation,
     );
     fireToolMoved();
   }
